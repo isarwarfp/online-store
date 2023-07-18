@@ -6,6 +6,7 @@ import cats.implicits.*
 import com.store.foundations.Http4s.courseRoutes
 import com.store.jobsboard.config.*
 import com.store.jobsboard.config.syntax.*
+import com.store.jobsboard.http.HttpApi
 import com.store.jobsboard.http.routes.HealthRoutes
 import io.circe.generic.auto.*
 import io.circe.syntax.*
@@ -26,7 +27,7 @@ object Application extends IOApp.Simple:
         .default[IO]
         .withHost(config.host)
         .withPort(config.port)
-        .withHttpApp(HealthRoutes[IO].routes.orNotFound)
+        .withHttpApp(HttpApi[IO].endpoints.orNotFound)
         .build // that will create resource
         .use(_ => IO.println("Server Started") *> IO.never)
     }

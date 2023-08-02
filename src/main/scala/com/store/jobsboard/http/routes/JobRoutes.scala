@@ -8,6 +8,8 @@ import cats.implicits.*
 import cats.data.Kleisli
 import cats.effect.IO
 import com.store.foundations.Http4s.{courseRoutes, healthEndpoint}
+
+import org.typelevel.log4cats.Logger
 import org.http4s.dsl.Http4sDsl
 import org.http4s.dsl.impl.*
 import org.http4s.server.Router
@@ -19,7 +21,7 @@ import com.store.jobsboard.http.responses.FailureResponse
 
 import java.util.UUID
 
-class JobRoutes[F[_]: Concurrent] private extends Http4sDsl[F]:
+class JobRoutes[F[_]: Concurrent: Logger] private extends Http4sDsl[F]:
 
   // database
   private val database = mutable.Map[UUID, Job]()
@@ -46,13 +48,17 @@ class JobRoutes[F[_]: Concurrent] private extends Http4sDsl[F]:
       jobInfo = jobInfo,
       active = true
     ).pure[F]
+
+  import com.store.jobsboard.logging.syntax.*
   // POST /jobs/create { jobsInfo }
   private val create: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "create" =>
       for {
-        jobInfo <- req.as[JobInfo]
-        id      <- createJob(jobInfo)
-        resp    <- Created(id)
+        _       <- Logger[F].info("Creating Jobs start!")
+        jobInfo <- req.as[JobInfo].logError(e => s"Parsing payload failed: $e")
+        job     <- createJob(jobInfo)
+        _       <- database.put(job.id, job).pure[F]
+        resp    <- Created(job.id)
       } yield resp
   }
 
@@ -84,4 +90,4 @@ class JobRoutes[F[_]: Concurrent] private extends Http4sDsl[F]:
   )
 
 object JobRoutes:
-  def apply[F[_]: Concurrent] = new JobRoutes[F]
+  def apply[F[_]: Concurrent: Logger] = new JobRoutes[F]

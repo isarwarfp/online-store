@@ -14,14 +14,17 @@ import org.http4s.*
 import org.http4s.circe.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Router
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 import pureconfig.ConfigReader.Result
 import pureconfig.ConfigSource
 
 import java.util.UUID
 
 object Application extends IOApp.Simple:
+  given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
+
   override def run: IO[Unit] =
-  //IO.println(UUID.randomUUID())
     ConfigSource.default.loadF[IO, EmberConfig].flatMap { config =>
       EmberServerBuilder
         .default[IO]

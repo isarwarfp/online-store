@@ -190,7 +190,7 @@ object LiveJobs:
     salaryHi: Option[Int],
     currency: Option[String],
     country: Option[String],
-    tags: Option[String],
+    tags: Option[List[String]],
     image: Option[String],
     seniority: Option[String],
     other: Option[String],

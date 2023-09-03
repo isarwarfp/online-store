@@ -6,8 +6,8 @@ import cats.implicits.*
 import com.store.foundations.Http4s.courseRoutes
 import com.store.jobsboard.config.*
 import com.store.jobsboard.config.syntax.*
-import com.store.jobsboard.http.HttpApi
 import com.store.jobsboard.http.routes.HealthRoutes
+import com.store.jobsboard.modules.*
 import io.circe.generic.auto.*
 import io.circe.syntax.*
 import org.http4s.*
@@ -24,14 +24,18 @@ import java.util.UUID
 object Application extends IOApp.Simple:
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-  override def run: IO[Unit] =
-    ConfigSource.default.loadF[IO, EmberConfig].flatMap { config =>
-      EmberServerBuilder
+  override def run: IO[Unit] = ConfigSource.default.loadF[IO, EmberConfig].flatMap { config =>
+    val appResource = for {
+      core <- Core[IO]
+      api <- HttpApi[IO](core)
+      server <- EmberServerBuilder
         .default[IO]
         .withHost(config.host)
         .withPort(config.port)
-        .withHttpApp(HttpApi[IO].endpoints.orNotFound)
+        .withHttpApp(api.endpoints.orNotFound)
         .build // that will create resource
-        .use(_ => IO.println("Server Started") *> IO.never)
-    }
+    } yield server
+
+    appResource.use(_ => IO.println("Server Started") *> IO.never)
+  }
 

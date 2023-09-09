@@ -2,8 +2,8 @@ package com.store.jobsboard.config
 
 import com.comcast.ip4s.{Host, Port}
 import pureconfig.ConfigReader
-import pureconfig.error.CannotConvert
 import pureconfig.generic.derivation.default.*
+import pureconfig.error.CannotConvert
 
 // given configReader: ConfigReader[EmberConfig]
 final case class EmberConfig(host: Host, port: Port) derives ConfigReader

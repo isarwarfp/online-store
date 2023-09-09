@@ -24,18 +24,19 @@ import java.util.UUID
 object Application extends IOApp.Simple:
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-  override def run: IO[Unit] = ConfigSource.default.loadF[IO, EmberConfig].flatMap { config =>
-    val appResource = for {
-      core <- Core[IO]
-      api <- HttpApi[IO](core)
-      server <- EmberServerBuilder
-        .default[IO]
-        .withHost(config.host)
-        .withPort(config.port)
-        .withHttpApp(api.endpoints.orNotFound)
-        .build // that will create resource
-    } yield server
-
-    appResource.use(_ => IO.println("Server Started") *> IO.never)
+  override def run: IO[Unit] = ConfigSource.default.loadF[IO, AppConfig].flatMap {
+    case AppConfig(postgresConfig, emberConfig) =>
+      val appResource = for {
+        xa     <- Database.mkPostgres[IO](postgresConfig)
+        core   <- Core[IO](xa)
+        api    <- HttpApi[IO](core)
+        server <- EmberServerBuilder
+          .default[IO]
+          .withHost(emberConfig.host)
+          .withPort(emberConfig.port)
+          .withHttpApp(api.endpoints.orNotFound)
+          .build // that will create resource
+      } yield server
+      appResource.use(_ => IO.println("Server Started") *> IO.never)
   }
 

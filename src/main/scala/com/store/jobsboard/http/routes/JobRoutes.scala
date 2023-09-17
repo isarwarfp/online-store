@@ -17,12 +17,13 @@ import org.http4s.{HttpRoutes, Request, Response}
 
 import com.store.jobsboard.core.*
 import com.store.jobsboard.domain.job.*
+import com.store.jobsboard.http.validation.syntax.*
 import com.store.jobsboard.http.responses.FailureResponse
 import com.store.jobsboard.logging.syntax.*
 
 import java.util.UUID
 
-class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F]) extends Http4sDsl[F]:
+class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F]) extends HttpValidationDsl[F]:
 
   // POST /jobs?offset=x&limit=y { filters } // TODO add query params and filter
   private val all: HttpRoutes[F] = HttpRoutes.of[F] {
@@ -45,24 +46,26 @@ class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F]) extends Http4s
   // POST /jobs/create { jobsInfo }
   private val create: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "create" =>
-      for {
-        _       <- Logger[F].info("Creating Jobs start!")
-        jobInfo <- req.as[JobInfo].logError(e => s"Parsing payload failed: $e")
-        jobId   <- jobs.create("abc@gmail.com", jobInfo)
-        resp    <- Created(jobId)
-      } yield resp
+      req.validateAs[JobInfo] { jobInfo =>
+        for {
+          jobId   <- jobs.create("abc@gmail.com", jobInfo)
+          resp    <- Created(jobId)
+        } yield resp
+      }
   }
 
   // PUT /jobs/uuid { jobInfo }
   private val update: HttpRoutes[F] = HttpRoutes.of[F] {
-    case req @ PUT -> Root / UUIDVar(id) => for {
-      jobsInfo <- req.as[JobInfo]
-      updated  <- jobs.update(id, jobsInfo)
-      resp     <- updated match {
-        case Some(_) => Ok()
-        case None      => NotFound(FailureResponse(s"Cannot update job $id not found"))
+    case req @ PUT -> Root / UUIDVar(id) =>
+      req.validateAs[JobInfo] { jobInfo =>
+        for {
+          updated  <- jobs.update(id, jobInfo)
+          resp     <- updated match {
+            case Some(_) => Ok()
+            case None    => NotFound(FailureResponse(s"Cannot update job $id not found"))
+          }
+        } yield resp
       }
-    } yield resp
   }
 
   // DELETE /jobs/uuid

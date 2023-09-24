@@ -3,14 +3,20 @@ package com.store.jobsboard.core
 import cats.effect.*
 import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.implicits.*
+import com.store.jobsboard.domain.job.JobFilter
+import com.store.jobsboard.domain.pagination.Pagination
 import com.store.jobsboard.fixtures.JobFixture
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import doobie.postgres.implicits.*
 import doobie.implicits.*
+import org.typelevel.log4cats.Logger
+import com.store.jobsboard.logging.syntax.*
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 class JobsSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with DoobieSpec with JobFixture:
   override val initScript: String = "sql/jobs.sql"
+  given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
   "Jobs 'Algebra'" - {
     "should return empty if UUID does not exist" in {
@@ -56,6 +62,28 @@ class JobsSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with DoobieS
       } yield mayBeUpdated
 
       program.asserting(_ shouldBe Some(UpdatedAwesomeJob))
+    }
+  }
+
+  "should filter remote job" in {
+    transactor.use { xa =>
+      val program = for {
+        jobs <- LiveJobs[IO](xa)
+        mayBeUpdated <- jobs.all(JobFilter(remote = true), Pagination.default)
+      } yield mayBeUpdated
+
+      program.asserting(_ shouldBe List.empty)
+    }
+  }
+
+  "should filter job by tags" in {
+    transactor.use { xa =>
+      val program = for {
+        jobs <- LiveJobs[IO](xa)
+        mayBeUpdated <- jobs.all(JobFilter(tags = List("scala", "cats", "zio")), Pagination.default)
+      } yield mayBeUpdated
+
+      program.asserting(_ shouldBe List(AwesomeJob))
     }
   }
 

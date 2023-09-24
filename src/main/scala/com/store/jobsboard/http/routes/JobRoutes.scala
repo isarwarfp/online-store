@@ -17,6 +17,7 @@ import org.http4s.{HttpRoutes, Request, Response}
 
 import com.store.jobsboard.core.*
 import com.store.jobsboard.domain.job.*
+import com.store.jobsboard.domain.pagination.*
 import com.store.jobsboard.http.validation.syntax.*
 import com.store.jobsboard.http.responses.FailureResponse
 import com.store.jobsboard.logging.syntax.*
@@ -25,10 +26,14 @@ import java.util.UUID
 
 class JobRoutes[F[_]: Concurrent: Logger] private (jobs: Jobs[F]) extends HttpValidationDsl[F]:
 
-  // POST /jobs?offset=x&limit=y { filters } // TODO add query params and filter
+  object OffsetQueryParam extends OptionalQueryParamDecoderMatcher[Int]("offset")
+  object LimitQueryParam extends OptionalQueryParamDecoderMatcher[Int]("limit")
+
+  // POST /jobs?limit=x&offset=y { filters } // TODO add query params and filter
   private val all: HttpRoutes[F] = HttpRoutes.of[F] {
-    case POST -> Root => for {
-      jobsList <- jobs.all()
+    case req @ POST -> Root :? LimitQueryParam(limit) +& OffsetQueryParam(offset) => for {
+      filter   <- req.as[JobFilter]
+      jobsList <- jobs.all(filter, Pagination(limit, offset))
       resp     <- Ok(jobsList)
     } yield resp
   }

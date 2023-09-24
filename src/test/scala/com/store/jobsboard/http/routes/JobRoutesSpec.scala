@@ -4,8 +4,8 @@ import cats.effect.*
 import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.implicits.*
 import com.store.jobsboard.core.*
-import com.store.jobsboard.domain.job
-import com.store.jobsboard.domain.job.Job
+import com.store.jobsboard.domain.pagination.*
+import com.store.jobsboard.domain.job.*
 import com.store.jobsboard.fixtures.JobFixture
 import io.circe.generic.auto.*
 import org.http4s.circe.CirceEntityCodec.*
@@ -22,11 +22,14 @@ import java.util.UUID
 
 class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] with Matchers with JobFixture:
   val jobs: Jobs[IO] = new Jobs[IO]:
-    override def create(ownerEmail: String, jobInfo: job.JobInfo): IO[UUID] = IO.pure(NewJobUuid)
-    override def all(): IO[List[job.Job]] = IO.pure(List(AwesomeJob))
-    override def find(id: UUID): IO[Option[job.Job]] =
+    override def create(ownerEmail: String, jobInfo: JobInfo): IO[UUID] = IO.pure(NewJobUuid)
+    override def all(): IO[List[Job]] = IO.pure(List(AwesomeJob))
+    override def all(filter: JobFilter, pagination: Pagination): IO[List[Job]] =
+      if(filter.remote) IO.pure(List.empty)
+      else IO.pure(List(AwesomeJob))
+    override def find(id: UUID): IO[Option[Job]] =
       if(id == AwesomeJobUuid) IO.pure(Some(AwesomeJob)) else IO.pure(None)
-    override def update(id: UUID, jobInfo: job.JobInfo): IO[Option[job.Job]] =
+    override def update(id: UUID, jobInfo: JobInfo): IO[Option[Job]] =
       if(id == AwesomeJobUuid) IO.pure(Some(UpdatedAwesomeJob)) else IO.pure(None)
     override def delete(id: UUID): IO[Int] =
       if(id == AwesomeJobUuid) IO.pure(1) else IO.pure(0)
@@ -37,7 +40,9 @@ class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] wi
   "JobRoutes" - {
     "should return a job with a given id" in {
       for {
-        response  <- jobRoutes.orNotFound.run(Request(method = Method.GET, uri = uri"jobs/843df718-ec6e-4d49-9289-f799c0f40064"))
+        response  <- jobRoutes.orNotFound.run(
+          Request(method = Method.GET, uri = uri"jobs/843df718-ec6e-4d49-9289-f799c0f40064")
+        )
         retrieved <- response.as[Job]
       } yield {
         response.status shouldBe Status.Ok
@@ -47,11 +52,24 @@ class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] wi
 
     "should return all jobs" in {
       for {
-        response <- jobRoutes.orNotFound.run(Request(method = Method.POST, uri = uri"jobs"))
+        response <- jobRoutes.orNotFound.run(Request(method = Method.POST, uri = uri"jobs").withEntity(JobFilter()))
         retrieved <- response.as[List[Job]]
       } yield {
         response.status shouldBe Status.Ok
         retrieved shouldBe List(AwesomeJob)
+      }
+    }
+
+    "should return all jobs that satisfy filter" in {
+      for {
+        response <- jobRoutes.orNotFound.run(
+          Request(method = Method.POST, uri = uri"jobs")
+          .withEntity(JobFilter(remote = true))
+        )
+        retrieved <- response.as[List[Job]]
+      } yield {
+        response.status shouldBe Status.Ok
+        retrieved shouldBe List.empty
       }
     }
 

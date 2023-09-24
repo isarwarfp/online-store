@@ -11,6 +11,16 @@ object job:
     active: Boolean = false
   )
 
+  final case class JobFilter(
+    companies: List[String] = List.empty,
+    locations: List[String] = List.empty,
+    countries: List[String] = List.empty,
+    seniorities: List[String] = List.empty,
+    tags: List[String] = List.empty,
+    maxSalary: Option[Int] = None,
+    remote: Boolean = false
+  )
+
   final case class JobInfo(
     company: String,
     title: String,

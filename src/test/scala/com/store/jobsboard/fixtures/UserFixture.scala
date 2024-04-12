@@ -5,22 +5,24 @@ import com.store.jobsboard.domain.user.User
 
 trait UserFixture:
   val IMRAN_ADMIN: User = User(
-    "i@gmail.com",
+    imranEmail,
     "pwd",
     Some("Imran"),
     Some("Sarwar"),
     Some("IMG"),
     ADMIN
   )
+  val imranEmail = "i@gmail.com"
 
   val IMRAN_RECRUITER: User = User(
-    "i2@gmail.com",
+    imranRecruiterEmail,
     "pwd2",
     Some("Imran"),
     Some("Sarwar"),
     Some("IMG"),
     RECRUITER
   )
+  val imranRecruiterEmail = "i2@gmail.com"
 
   val NEW_USER: User = User(
     "i3@gmail.com",

@@ -18,7 +18,7 @@ INSERT INTO users(
     role
 ) VALUES (
     'i@gmail.com',
-    'pwd',
+    '$2a$10$FqgaSbLZ5MEPQvD5qDTV5e0Xz/N8q3oT027ZwtLDsSIhMoQaMFGjC',
     'Imran',
     'Sarwar',
     'IMG',
@@ -34,7 +34,7 @@ INSERT INTO users(
     role
 ) VALUES (
     'i2@gmail.com',
-    'pwd2',
+    '$2a$10$OLVVnNYAlUwFmjpSCoYnWeEkkeJBMQcNcKXR01m.gK.01McgpzudO',
     'Imran',
     'Sarwar',
     'IMG',

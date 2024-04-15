@@ -10,6 +10,7 @@ import tsec.passwordhashers.PasswordHash
 import tsec.passwordhashers.jca.BCrypt
 
 trait Auth[F[_]]:
+  // For test consider `Imran` is already in Database
   def login(email: String, password: String): F[Option[JwtToken]]
   def signUp(newUserInfo: NewUserInfo): F[Option[User]]
   def changePassword(email: String, newPasswordInfo: NewPasswordInfo): F[Either[String, Option[User]]]
@@ -56,7 +57,7 @@ class LiveAuth[F[_]: Async: Logger] private (users: Users[F], authenticator: Aut
         if(passCheck) updateUser(user, newPwd).map(Right(_))
         else Left("Invalid password").pure[F]
     } yield updatedResult
-    
+
     users.find(email).flatMap {
       case None => Right(None).pure[F]
       case Some(user) => checkAndUpdateUser(user, newPasswordInfo.oldPassword, newPasswordInfo.newPassword)

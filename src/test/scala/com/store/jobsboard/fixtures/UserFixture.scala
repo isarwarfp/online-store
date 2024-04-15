@@ -1,10 +1,11 @@
 package com.store.jobsboard.fixtures
 
 import com.store.jobsboard.domain.user.Role.*
-import com.store.jobsboard.domain.user.User
+import com.store.jobsboard.domain.user.{NewUserInfo, User}
 
 trait UserFixture:
   val imranEmail = "i@gmail.com"
+  val imranPassword = "pwd"
   val IMRAN_ADMIN: User = User(
     imranEmail,
     "$2a$10$FqgaSbLZ5MEPQvD5qDTV5e0Xz/N8q3oT027ZwtLDsSIhMoQaMFGjC",
@@ -40,4 +41,20 @@ trait UserFixture:
     Some("Sarwar Butt"),
     Some("IMG"),
     ADMIN
+  )
+
+  val NEW_USER_IMRAN_ADMIN: NewUserInfo = NewUserInfo(
+    imranEmail,
+    imranPassword,
+    Some("Imran"),
+    Some("Sarwar"),
+    Some("IMG")
+  )
+
+  val NEW_USER_CREATION: NewUserInfo = NewUserInfo(
+    "i3@gmail.com",
+    "pwd10",
+    Some("New"),
+    Some("User"),
+    Some("IMG")
   )

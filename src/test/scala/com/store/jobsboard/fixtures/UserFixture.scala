@@ -51,6 +51,7 @@ trait UserFixture:
     Some("IMG")
   )
 
+  val newUserEmail = "i3@gmail.com"
   val NEW_USER_CREATION: NewUserInfo = NewUserInfo(
     "i3@gmail.com",
     "pwd10",

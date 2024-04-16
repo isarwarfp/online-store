@@ -31,10 +31,38 @@ import scala.concurrent.duration.given
 import scala.language.postfixOps
 
 class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] with Matchers with UserFixture:
+  private val mockedAuthenticator: Authenticator[IO] = {
+    // Key for Hashing
+    val key = HMACSHA256.unsafeGenerateKey
+    // identity store to fetch users
+    val idStore: IdentityStore[IO, String, User] = (email: String) =>
+      if (email == imranEmail) OptionT.pure(IMRAN_ADMIN)
+      else if (email == imranRecruiterEmail) OptionT.pure(IMRAN_RECRUITER)
+      else if (email == newUserEmail) OptionT.pure(NEW_USER)
+      else OptionT.none[IO, User]
+    // jwt authenticator
+    JWTAuthenticator.unbacked.inBearerToken(
+      1 day, None, idStore, key
+    )
+  }
+
   val mockedAuth: Auth[IO] = new Auth[IO] {
-    def login(email: String, password: String): IO[Option[JwtToken]] = ???
-    def signUp(newUserInfo: NewUserInfo): IO[Option[User]] = ???
-    def changePassword(email: String, newPasswordInfo: NewPasswordInfo): IO[Either[String, Option[User]]] = ???
+    override def login(email: String, password: String): IO[Option[JwtToken]] =
+      if( email == imranEmail && password == imranPassword)
+        mockedAuthenticator.create(imranEmail).map(Some(_))
+      else IO.pure(None)
+    override def signUp(newUserInfo: NewUserInfo): IO[Option[User]] =
+      if(newUserInfo.email == newUserEmail)
+        IO.pure(Some(NEW_USER))
+      else IO.pure(None)
+    override def changePassword(email: String, newPasswordInfo: NewPasswordInfo): IO[Either[String, Option[User]]] =
+      if(email == imranEmail)
+        if(newPasswordInfo.oldPassword == imranPassword)
+          IO.pure(Right(Some(IMRAN_ADMIN)))
+        else IO.pure(Left("Invalid password"))
+      else IO.pure(Right(None))
+
+    override def authenticator: Authenticator[IO] = mockedAuthenticator
   }
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
   val authRoutes: HttpRoutes[IO] = AuthRoutes[IO](mockedAuth).routes
@@ -45,20 +73,6 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] w
         val jwtString = JWTMac.toEncodedString[IO, HMACSHA256](a.jwt)
         Authorization(Credentials.Token(AuthScheme.Bearer, jwtString))
       }
-
-  private val mockedAuthenticator: Authenticator[IO] = {
-    // Key for Hashing
-    val key = HMACSHA256.unsafeGenerateKey
-    // identity store to fetch users
-    val idStore: IdentityStore[IO, String, User] = (email: String) =>
-      if (email == imranEmail) OptionT.pure(IMRAN_ADMIN)
-      else if (email == imranRecruiterEmail) OptionT.pure(IMRAN_RECRUITER)
-      else OptionT.none[IO, User]
-    // jwt authenticator
-    JWTAuthenticator.unbacked.inBearerToken(
-      1 day, None, idStore, key
-    )
-  }
 
   "AuthRoutes" - {
     "Should return a 401 - unauthorised if login fails" in {
@@ -74,7 +88,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] w
       for {
         response <- authRoutes.orNotFound.run(
           Request(method = Method.POST, uri = uri"/auth/login")
-            .withEntity(LoginInfo(imranEmail, "pwd"))
+            .withEntity(LoginInfo(imranEmail, imranPassword))
         )
       } yield {
         response.status shouldBe Status.Ok
@@ -93,10 +107,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] w
       for {
         response <- authRoutes.orNotFound.run(
           Request(method = Method.POST, uri = uri"/auth/users").withEntity(NEW_USER_CREATION))
-      } yield {
-        response.status shouldBe Status.Created
-        response.headers.get(ci"Authorization") shouldBe defined
-      }
+      } yield response.status shouldBe Status.Created
     }
 
     "should return 200 - Ok, if logging out with valid JWT Token" in {

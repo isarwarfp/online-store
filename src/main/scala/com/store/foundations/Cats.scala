@@ -82,8 +82,9 @@ object Cats:
     val failedValue = applicativeEither.raiseError("Couldn't parse value")
 
     import cats.syntax.applicativeError.*
+    type EOr[A] = Either[Map[Int, String], A]
     val desiredValue_v2 = 313.pure
-    val failedValue_v2 = "Couldn't found value".raiseError
+    val failedValue_v2: EOr[Int] = Map.empty[Int, String].raiseError
 
     // ####### Monad Error #######
     // means: it has a flatmap too and all powers as Monad

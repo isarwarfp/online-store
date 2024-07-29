@@ -63,6 +63,7 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] w
       else IO.pure(Right(None))
 
     override def authenticator: Authenticator[IO] = mockedAuthenticator
+    override def delete(email: String): IO[Boolean] = IO.pure(true)
   }
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
   val authRoutes: HttpRoutes[IO] = AuthRoutes[IO](mockedAuth).routes
@@ -126,5 +127,25 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] w
           Request(method = Method.POST, uri = uri"/auth/logout")
         )
       } yield response.status shouldBe Status.Unauthorized
+    }
+
+    "should return 401 Unauthorized, if non admin delete user" in {
+      for {
+        jwtToken <- mockedAuthenticator.create(imranRecruiterEmail)
+        response <- authRoutes.orNotFound.run(
+          Request(method = Method.DELETE, uri = uri"/auth/users/i@gmail.com")
+            .withBearerToken(jwtToken)
+        )
+      } yield response.status shouldBe Status.Unauthorized
+    }
+
+    "should return 200 Ok, if an admin delete user" in {
+      for {
+        jwtToken <- mockedAuthenticator.create(imranEmail)
+        response <- authRoutes.orNotFound.run(
+          Request(method = Method.DELETE, uri = uri"/auth/users/i2@gmail.com")
+            .withBearerToken(jwtToken)
+        )
+      } yield response.status shouldBe Status.Ok
     }
   }

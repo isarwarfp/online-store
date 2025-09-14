@@ -7,6 +7,7 @@ import com.store.jobsboard.core.*
 import com.store.jobsboard.domain.pagination.*
 import com.store.jobsboard.domain.job.*
 import com.store.jobsboard.fixtures.JobFixture
+import com.store.jobsboard.fixtures.SecuredRouteFixture
 import io.circe.generic.auto.*
 import org.http4s.circe.CirceEntityCodec.*
 import org.http4s.*
@@ -20,7 +21,7 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import java.util.UUID
 
-class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] with Matchers with JobFixture:
+class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] with Matchers with JobFixture with SecuredRouteFixture:
   val jobs: Jobs[IO] = new Jobs[IO]:
     override def create(ownerEmail: String, jobInfo: JobInfo): IO[UUID] = IO.pure(NewJobUuid)
     override def all(): IO[List[Job]] = IO.pure(List(AwesomeJob))
@@ -75,8 +76,10 @@ class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] wi
 
     "should successfully create job" in {
       for {
+        jwtToken <- mockedAuthenticator.create(imranEmail)
         response <- jobRoutes.orNotFound.run(Request(method = Method.POST, uri = uri"jobs/create")
-          .withEntity(AwesomeJob.jobInfo))
+          .withEntity(AwesomeJob.jobInfo)
+          .withBearerToken(jwtToken))
         retrieved <- response.as[UUID]
       } yield {
         response.status shouldBe Status.Created
@@ -86,22 +89,39 @@ class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] wi
 
     "should update job if exists" in {
       for {
+        jwtToken <- mockedAuthenticator.create(imranEmail)
         response <- jobRoutes.orNotFound.run(Request(method = Method.PUT, uri = uri"jobs/843df718-ec6e-4d49-9289-f799c0f40064")
-          .withEntity(UpdatedAwesomeJob.jobInfo))
+          .withEntity(UpdatedAwesomeJob.jobInfo)
+          .withBearerToken(jwtToken))
         invalidResponse <- jobRoutes.orNotFound.run(Request(method = Method.PUT, uri = uri"jobs/843df718-ec6e-4d49-9289-000000000000")
-          .withEntity(UpdatedAwesomeJob.jobInfo))
+          .withEntity(UpdatedAwesomeJob.jobInfo)
+          .withBearerToken(jwtToken))
       } yield {
         response.status shouldBe Status.Ok
         invalidResponse.status shouldBe Status.NotFound
       }
     }
 
+    "should not let update the job if user doesn't owns the job" in {
+      for {
+        jwtToken <- mockedAuthenticator.create("somebody@gmail.com")
+        response <- jobRoutes.orNotFound.run(Request(method = Method.PUT, uri = uri"jobs/843df718-ec6e-4d49-9289-f799c0f40064")
+          .withEntity(UpdatedAwesomeJob.jobInfo)
+          .withBearerToken(jwtToken))
+      } yield {
+        response.status shouldBe Status.Unauthorized
+      }
+    }
+
     "should delete job if exists" in {
       for {
+        jwtToken <- mockedAuthenticator.create(imranEmail)
         response <- jobRoutes.orNotFound.run(Request(method = Method.DELETE, uri = uri"jobs/843df718-ec6e-4d49-9289-f799c0f40064")
-          .withEntity(UpdatedAwesomeJob.jobInfo))
+          .withEntity(UpdatedAwesomeJob.jobInfo)
+          .withBearerToken(jwtToken))
         invalidResponse <- jobRoutes.orNotFound.run(Request(method = Method.DELETE, uri = uri"jobs/843df718-ec6e-4d49-9289-000000000000")
-          .withEntity(UpdatedAwesomeJob.jobInfo))
+          .withEntity(UpdatedAwesomeJob.jobInfo)
+          .withBearerToken(jwtToken))
       } yield {
         response.status shouldBe Status.Ok
         invalidResponse.status shouldBe Status.NotFound

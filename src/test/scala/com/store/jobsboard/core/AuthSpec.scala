@@ -19,14 +19,6 @@ import com.store.jobsboard.config.SecurityConfig
 
 class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFixture:
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-  private val mockedUser = new Users[IO]:
-    override def find(email: String): IO[Option[User]] =
-      if(email == imranEmail) IO.pure(Some(IMRAN_ADMIN))
-      else IO.pure(None)
-    override def create(user: User): IO[String] = IO.pure(user.email)
-    override def update(user: User): IO[Option[User]] = IO.pure(Some(user))
-    override def delete(email: String): IO[Boolean] = IO.pure(true)
-  
   private val mockedSecurityConfig = SecurityConfig("secret", 1.day)
 
   // private val mockedAuthenticator: Authenticator[IO] = {
@@ -46,7 +38,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
   "Auth 'algebra'" - {
     "login should return None, if user do not exist" in {
       val program = for {
-        auth <- LiveAuth[IO](mockedUser)(mockedSecurityConfig)
+        auth <- LiveAuth[IO](mockedUser)
         maybeToken <- auth.login("donot@gmail.com", "pwd")
       } yield maybeToken
       program.asserting(_ shouldBe None)
@@ -54,7 +46,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
 
     "login should return None, if user password is wrong" in {
       val program = for {
-        auth <- LiveAuth[IO](mockedUser)(mockedSecurityConfig)
+        auth <- LiveAuth[IO](mockedUser)
         maybeToken <- auth.login(imranEmail, "pwd2")
       } yield maybeToken
       program.asserting(_ shouldBe None)
@@ -62,7 +54,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
 
     "login should return a token, if user user credentials are correct" in {
       val program = for {
-        auth <- LiveAuth[IO](mockedUser)(mockedSecurityConfig)
+        auth <- LiveAuth[IO](mockedUser)
         maybeToken <- auth.login(imranEmail, "pwd")
       } yield maybeToken
       program.asserting(_ shouldBe defined)
@@ -70,7 +62,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
 
     "signup should not create user after an existing user" in {
       val program = for {
-        auth <- LiveAuth[IO](mockedUser)(mockedSecurityConfig)
+        auth <- LiveAuth[IO](mockedUser)
         maybeToken <- auth.signUp(NewUserInfo(
           imranEmail,
           "other-pwd",
@@ -84,7 +76,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
 
     "signup should create user new user" in {
       val program = for {
-        auth <- LiveAuth[IO](mockedUser)(mockedSecurityConfig)
+        auth <- LiveAuth[IO](mockedUser)
         maybeToken <- auth.signUp(NewUserInfo(
           "i@k.com",
           "pwd",

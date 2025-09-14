@@ -8,13 +8,18 @@ import tsec.authentication.{AugmentedJWT, JWTAuthenticator, SecuredRequest, TSec
 import tsec.mac.jca.HMACSHA256
 import tsec.authorization.{AuthorizationInfo, BasicRBAC}
 import tsec.authorization.BasicRBAC.*
+import tsec.authentication.SecuredRequestHandler
 
 object security:
   type Crypto = HMACSHA256
   type JwtToken = AugmentedJWT[Crypto, String]
   type Authenticator[F[_]] = JWTAuthenticator[F, String, User, Crypto]
   type AuthRoute[F[_]] = PartialFunction[SecuredRequest[F, User, JwtToken], F[Response[F]]]
+  // RBAC: Role Base Access Control: That takes JwtToken and finds the role of the user
   type AuthRBAC[F[_]] = BasicRBAC[F, Role, User, JwtToken]
+  type SecuredHandler[F[_]] = SecuredRequestHandler[F, String, User, JwtToken]
+  object SecuredHandler:
+    def apply[F[_]](using handler: SecuredHandler[F]): SecuredHandler[F] = handler
 
   // RBAC: Role Base Access Control
   given authRole[F[_]: Applicative]: AuthorizationInfo[F, Role, User] with
@@ -23,8 +28,8 @@ object security:
   def allRoles[F[_]: MonadThrow]: AuthRBAC[F] =
     BasicRBAC.all[F, Role, User, JwtToken]
 
-  // def recruiterOnly[F[_], MonadThrow]: AuthRBAC[F] =
-  //   BasicRBAC(Role.RECRUITER)
+  def recruiterOnly[F[_]: MonadThrow]: AuthRBAC[F] =
+    BasicRBAC(Role.RECRUITER)
 
   def onlyAdmin[F[_]: MonadThrow]: AuthRBAC[F] =
     BasicRBAC(Role.ADMIN)

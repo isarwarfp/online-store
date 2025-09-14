@@ -18,16 +18,19 @@ import org.typelevel.log4cats.Logger
 import tsec.authentication.{SecuredRequestHandler, TSecAuthService, asAuthed}
 import scala.language.implicitConversions
 
-class AuthRoutes[F[_]: Concurrent: Logger] private (auth: Auth[F]) extends HttpValidationDsl[F]:
-  private val authenticator = auth.authenticator
-  private val securedHandler: SecuredRequestHandler[F, String, User, JwtToken] =
-    SecuredRequestHandler(authenticator)
+class AuthRoutes[F[_]: Concurrent: Logger: SecuredHandler] private (
+  auth: Auth[F], 
+  authenticator: Authenticator[F]) extends HttpValidationDsl[F]:
+  
   private val loginRoute: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "login" =>
       req.validateAs[LoginInfo] { loginInfo =>
         val maybeJwtToken = for {
-          maybeToken <- auth.login(loginInfo.email, loginInfo.password)
+          maybeUser <- auth.login(loginInfo.email, loginInfo.password)
           _ <- Logger[F].info(s"User Logging In: ${loginInfo.email}")
+          // Using map Found: Option[User].map(User => F[JWTToken]) => Option[F[JWTToken]]
+          // So to achieve F[Option[JWTToken]] using traverse
+          maybeToken <- maybeUser.traverse(user => authenticator.create(user.email))
         } yield maybeToken
         maybeJwtToken.map {
           case Some(token) =>
@@ -81,7 +84,7 @@ class AuthRoutes[F[_]: Concurrent: Logger] private (auth: Auth[F]) extends HttpV
   }
 
   val unAuthedRoutes = loginRoute <+> createUserRoute
-  val authedRoutes = securedHandler.liftService {
+  val authedRoutes = SecuredHandler[F].liftService {
     changePasswordRoute.restrictedTo(allRoles) |+|
       logoutRoute.restrictedTo(allRoles) |+|
       deleteUserRoute.restrictedTo(onlyAdmin)
@@ -89,5 +92,10 @@ class AuthRoutes[F[_]: Concurrent: Logger] private (auth: Auth[F]) extends HttpV
   }
   val routes: HttpRoutes[F] = Router( "/auth" -> (unAuthedRoutes <+> authedRoutes))
 
+/**
+ * - Use Tagless Final dependency injection only when you need a capability instead of just intermediate values 
+ * - This dependency is instansiated only once and its used throughout the application
+ */
 object AuthRoutes:
-  def apply[F[_]: Concurrent: Logger](auth: Auth[F]): AuthRoutes[F] = new AuthRoutes[F](auth)
+  def apply[F[_]: Concurrent: Logger: SecuredHandler](auth: Auth[F], authenticator: Authenticator[F]): AuthRoutes[F] = 
+    new AuthRoutes[F](auth, authenticator)

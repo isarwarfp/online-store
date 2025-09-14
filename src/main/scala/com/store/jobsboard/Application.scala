@@ -28,8 +28,8 @@ object Application extends IOApp.Simple:
     case AppConfig(postgresConfig, emberConfig, securityConfig) =>
       val appResource = for {
         xa     <- Database.mkPostgres[IO](postgresConfig)
-        core   <- Core[IO](xa)(securityConfig)
-        api    <- HttpApi[IO](core)
+        core   <- Core[IO](xa)
+        api    <- HttpApi[IO](core, securityConfig)
         server <- EmberServerBuilder
           .default[IO]
           .withHost(emberConfig.host)

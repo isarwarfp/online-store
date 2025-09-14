@@ -11,6 +11,7 @@ import com.store.jobsboard.domain.job.*
 import com.store.jobsboard.domain.security.{Authenticator, JwtToken}
 import com.store.jobsboard.domain.user.{NewUserInfo, User}
 import com.store.jobsboard.fixtures.{JobFixture, UserFixture}
+import com.store.jobsboard.fixtures.SecuredRouteFixture
 import io.circe.generic.auto.*
 import org.http4s.circe.CirceEntityCodec.*
 import org.http4s.*
@@ -29,27 +30,13 @@ import tsec.mac.jca.HMACSHA256
 import scala.concurrent.duration.given
 
 import scala.language.postfixOps
+import tsec.authentication.SecuredRequestHandler
 
-class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] with Matchers with UserFixture:
-  private val mockedAuthenticator: Authenticator[IO] = {
-    // Key for Hashing
-    val key = HMACSHA256.unsafeGenerateKey
-    // identity store to fetch users
-    val idStore: IdentityStore[IO, String, User] = (email: String) =>
-      if (email == imranEmail) OptionT.pure(IMRAN_ADMIN)
-      else if (email == imranRecruiterEmail) OptionT.pure(IMRAN_RECRUITER)
-      else if (email == newUserEmail) OptionT.pure(NEW_USER)
-      else OptionT.none[IO, User]
-    // jwt authenticator
-    JWTAuthenticator.unbacked.inBearerToken(
-      1 day, None, idStore, key
-    )
-  }
-
+class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] with Matchers with SecuredRouteFixture:
   val mockedAuth: Auth[IO] = new Auth[IO] {
-    override def login(email: String, password: String): IO[Option[JwtToken]] =
+    override def login(email: String, password: String): IO[Option[User]] =
       if( email == imranEmail && password == imranPassword)
-        mockedAuthenticator.create(imranEmail).map(Some(_))
+        Some(IMRAN_ADMIN).pure[IO]
       else IO.pure(None)
     override def signUp(newUserInfo: NewUserInfo): IO[Option[User]] =
       if(newUserInfo.email == newUserEmail)
@@ -62,18 +49,10 @@ class AuthRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Http4sDsl[IO] w
         else IO.pure(Left("Invalid password"))
       else IO.pure(Right(None))
 
-    override def authenticator: Authenticator[IO] = mockedAuthenticator
     override def delete(email: String): IO[Boolean] = IO.pure(true)
   }
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-  val authRoutes: HttpRoutes[IO] = AuthRoutes[IO](mockedAuth).routes
-
-  extension (r: Request[IO])
-    def withBearerToken(a: JwtToken): Request[IO] =
-      r.putHeaders {
-        val jwtString = JWTMac.toEncodedString[IO, HMACSHA256](a.jwt)
-        Authorization(Credentials.Token(AuthScheme.Bearer, jwtString))
-      }
+  val authRoutes: HttpRoutes[IO] = AuthRoutes[IO](mockedAuth, mockedAuthenticator).routes
 
   "AuthRoutes" - {
     "Should return a 401 - unauthorised if login fails" in {

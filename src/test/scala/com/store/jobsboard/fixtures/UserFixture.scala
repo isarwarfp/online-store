@@ -2,6 +2,8 @@ package com.store.jobsboard.fixtures
 
 import com.store.jobsboard.domain.user.Role.*
 import com.store.jobsboard.domain.user.{NewUserInfo, User}
+import com.store.jobsboard.core.Users
+import cats.effect.IO
 
 trait UserFixture:
   val imranEmail = "i@gmail.com"
@@ -59,3 +61,11 @@ trait UserFixture:
     Some("User"),
     Some("IMG")
   )
+
+  val mockedUser = new Users[IO]:
+    override def find(email: String): IO[Option[User]] =
+      if(email == imranEmail) IO.pure(Some(IMRAN_ADMIN))
+      else IO.pure(None)
+    override def create(user: User): IO[String] = IO.pure(user.email)
+    override def update(user: User): IO[Option[User]] = IO.pure(Some(user))
+    override def delete(email: String): IO[Boolean] = IO.pure(true)

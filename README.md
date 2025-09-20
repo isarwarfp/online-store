@@ -36,3 +36,8 @@ For delete only admin is required
 ```bash
 http delete localhost:4041/api/auth/users/isarwar.fp@gmail.com 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3NTU4MDMwODksImlhdCI6MTc1NTcxNjY4OSwianRpIjoiMzUxZjYyZjRhZDMzZTE3MGFiNzliZmE2ZjEyMzkzZjMifQ.GAHOM6G8ocWwUfY-fLlXD9BMeaasAQ2aOvu_D5oVtX4'
 ```
+
+For reset password
+```bash
+http post localhost:4041/api/auth/reset email='imran.fp@outlook.com'
+```

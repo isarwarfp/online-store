@@ -10,3 +10,13 @@ object auth:
     oldPassword: String,
     newPassword: String
   )
+
+  final case class ForgotPasswordInfo(
+    email: String
+  )
+
+  final case class ResetPasswordInfo(
+    email: String,
+    token: String,
+    newPassword: String
+  )

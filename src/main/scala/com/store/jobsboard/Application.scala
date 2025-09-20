@@ -25,10 +25,10 @@ object Application extends IOApp.Simple:
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
   override def run: IO[Unit] = ConfigSource.default.loadF[IO, AppConfig].flatMap {
-    case AppConfig(postgresConfig, emberConfig, securityConfig) =>
+    case AppConfig(postgresConfig, emberConfig, securityConfig, tokenConfig, emailServiceConfig) =>
       val appResource = for {
         xa     <- Database.mkPostgres[IO](postgresConfig)
-        core   <- Core[IO](xa)
+        core   <- Core[IO](xa, tokenConfig, emailServiceConfig)
         api    <- HttpApi[IO](core, securityConfig)
         server <- EmberServerBuilder
           .default[IO]

@@ -17,6 +17,8 @@ import org.http4s.server.Router
 import org.typelevel.log4cats.Logger
 import tsec.authentication.{SecuredRequestHandler, TSecAuthService, asAuthed}
 import scala.language.implicitConversions
+import com.store.jobsboard.domain.auth.ForgotPasswordInfo
+import com.store.jobsboard.domain.auth.ResetPasswordInfo
 
 class AuthRoutes[F[_]: Concurrent: Logger: SecuredHandler] private (
   auth: Auth[F], 
@@ -66,6 +68,24 @@ class AuthRoutes[F[_]: Concurrent: Logger: SecuredHandler] private (
       }
   }
 
+  private val forgotPasswordRoute: HttpRoutes[F] = HttpRoutes.of[F] {
+    case req @ POST -> Root / "reset" =>
+      for {
+        fpInfo <- req.as[ForgotPasswordInfo]
+        _ <- auth.sendRecoveryToken(fpInfo.email)
+        resp <- Ok()
+      } yield resp
+  }
+
+  private val resetPasswordRoute: HttpRoutes[F] = HttpRoutes.of[F] {
+    case req @ POST -> Root / "recover" =>
+      for {
+        rpInfo <- req.as[ResetPasswordInfo]
+        result <- auth.recoverPasswordFromToken(rpInfo.email, rpInfo.token, rpInfo.newPassword)
+        resp <- if(result) Ok() else Forbidden(FailureResponse("Invalid token"))
+      } yield resp
+  }
+
   private val logoutRoute: AuthRoute[F] = {
     case req @ POST -> Root / "logout" asAuthed _ =>
       val token = req.authenticator
@@ -83,7 +103,7 @@ class AuthRoutes[F[_]: Concurrent: Logger: SecuredHandler] private (
       }
   }
 
-  val unAuthedRoutes = loginRoute <+> createUserRoute
+  val unAuthedRoutes = loginRoute <+> createUserRoute <+> forgotPasswordRoute <+> resetPasswordRoute
   val authedRoutes = SecuredHandler[F].liftService {
     changePasswordRoute.restrictedTo(allRoles) |+|
       logoutRoute.restrictedTo(allRoles) |+|
